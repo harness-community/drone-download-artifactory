@@ -6,7 +6,7 @@ USER ContainerAdministrator
 
 ENV GODEBUG=netdns=go
 RUN mkdir /bin
-RUN Invoke-WebRequest https://releases.jfrog.io/artifactory/jfrog-cli/v2/2.52.9/jfrog-cli-windows-amd64/jfrog.exe -OutFile C:/bin/jfrog.exe
+RUN Invoke-WebRequest https://releases.jfrog.io/artifactory/jfrog-cli/v2-jf/[RELEASE]/jfrog-cli-windows-amd64/jf.exe -OutFile C:/bin/jfrog.exe
 ADD release/windows/amd64/plugin C:/bin/drone-download-artifactory.exe
 
 ENTRYPOINT [ "C:\\bin\\drone-download-artifactory.exe" ]
