@@ -7,13 +7,14 @@ FROM arm64v8/alpine:3.22
 ENV GODEBUG netdns=go
 COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Install jfrog cli latest version
+ARG JF_CLI_VERSION=2.112.0
+
 RUN apk add --update \
     curl \
     && rm -rf /var/cache/apk/*
-RUN curl -fL https://getcli.jfrog.io/v2-jf | sh
-RUN mv ./jf /usr/local/bin/jfrog
-RUN chmod +x /usr/local/bin/jfrog
+RUN curl -fL "https://releases.jfrog.io/artifactory/jfrog-cli/v2-jf/${JF_CLI_VERSION}/jfrog-cli-linux-arm64/jf" \
+    -o /usr/local/bin/jfrog && \
+    chmod +x /usr/local/bin/jfrog
 
 ADD release/linux/arm64/plugin /bin/
 ENTRYPOINT ["/bin/plugin"]
