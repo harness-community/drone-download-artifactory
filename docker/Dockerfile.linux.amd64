@@ -1,12 +1,12 @@
-FROM alpine:3.22 as alpine
+FROM alpine:3.23 as alpine
 RUN apk add -U --no-cache ca-certificates
 
-FROM alpine:3.22
+FROM alpine:3.23
 ENV GODEBUG netdns=go
 ENV CI=true
 COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-ARG JF_CLI_VERSION=2.112.0
+ARG JF_CLI_VERSION=2.118.0
 
 RUN apk add --update \
     curl \
