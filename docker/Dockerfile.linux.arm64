@@ -7,7 +7,7 @@ FROM arm64v8/alpine:3.23
 ENV GODEBUG netdns=go
 COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-ARG JF_CLI_VERSION=2.118.0
+ARG JF_CLI_VERSION=2.122.0
 
 RUN apk add --update \
     curl \
