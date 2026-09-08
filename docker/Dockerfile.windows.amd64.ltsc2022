@@ -6,8 +6,8 @@ USER ContainerAdministrator
 
 ENV GODEBUG=netdns=go
 RUN mkdir /bin
-# jfrog-cli 2.119.0: first release bundling go-git/go-git/v5 >= v5.19.2 (fixes CVE-2026-71556)
-RUN Invoke-WebRequest https://releases.jfrog.io/artifactory/jfrog-cli/v2/2.119.0/jfrog-cli-windows-amd64/jfrog.exe -OutFile C:/bin/jfrog.exe
+ARG JF_CLI_VERSION=2.122.0
+RUN Invoke-WebRequest "https://releases.jfrog.io/artifactory/jfrog-cli/v2-jf/${JF_CLI_VERSION}/jfrog-cli-windows-amd64/jf.exe" -OutFile C:/bin/jfrog.exe
 ADD release/windows/amd64/plugin C:/bin/drone-download-artifactory.exe
 
 ENTRYPOINT [ "C:\\bin\\drone-download-artifactory.exe" ]
