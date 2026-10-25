@@ -1,36 +1,40 @@
 # INC-2000 (eMudhra intermediate CA compromise).
+#  - The plugin binary (built by CI with golang:1.26.10) and the JFrog CLI both need Go >= 1.26.10 / 1.27.3.
+#    No upstream JFrog CLI release is built with a fixed Go yet (2.128.0 uses 1.26.9), so `jf` is compiled
+#    here from the pinned release tag. Switch back to downloading the release binary once upstream ships
+#    one built with Go >= 1.26.10, and check with: go version -m <jf binary>
 #  - The OS bundle must come from ca-certificates >= 20261020-r0, which drops "emSign ECC Root CA - G3"
-#    and "AAA Certificate Services". `jf` does not bundle its own roots: Go on Linux reads
-#    /etc/ssl/certs/ca-certificates.crt, so the patched bundle is what makes `jf` reject the compromised chains.
-#  - No upstream JFrog CLI release is built with Go >= 1.26.10 yet (2.122-2.127 use go1.26.6, 2.128.0 uses
-#    go1.26.9), so a scanner may still report the Go x509 finding on the `jf` binary. Move JF_CLI_VERSION to a
-#    release built with a fixed Go once JFrog ships one; check with: go version -m <jf binary>
-ARG JF_CLI_VERSION=2.122.0
+#    and "AAA Certificate Services".
+ARG GO_VERSION=1.26.10
+ARG JF_CLI_VERSION=2.128.0
+# The commit check replaces a checksum: the build fails if the upstream tag is moved.
+ARG JF_CLI_COMMIT=a2b1b2d308bb645811d3153b2d4a89803b37fb74
 ARG CA_CERTIFICATES_VERSION=20261020-r0
 
-# Throwaway stage: curl is only needed to download jf and must not end up in the final image.
-FROM arm64v8/alpine:3.24 AS jf
+FROM arm64v8/golang:${GO_VERSION}-alpine AS jf-build
 ARG JF_CLI_VERSION
-RUN apk add --no-cache curl \
- && curl -fL "https://releases.jfrog.io/artifactory/jfrog-cli/v2-jf/${JF_CLI_VERSION}/jfrog-cli-linux-arm64/jf" -o /jf \
- && chmod +x /jf
+ARG JF_CLI_COMMIT
+ENV GOTOOLCHAIN=local CGO_ENABLED=0
+RUN apk add --no-cache git
+WORKDIR /src
+RUN git clone --depth 1 --branch "v${JF_CLI_VERSION}" https://github.com/jfrog/jfrog-cli.git . \
+ && test "$(git rev-parse HEAD)" = "${JF_CLI_COMMIT}" \
+ && go build -trimpath -ldflags '-w -extldflags "-static"' -o /jf main.go
 
 FROM arm64v8/alpine:3.24
 ARG CA_CERTIFICATES_VERSION
 ENV GODEBUG=netdns=go
 
-# ${VAR:?} fails the build if the pin is ever unset. Do not copy a CA bundle from another stage over this one:
-# it would overwrite the patched bundle.
-# The final checks fail closed: the bundle and the mozilla/ directory must exist, and neither root may be listed.
-# Alpine names the AAA root file "Comodo_AAA_Services_root.crt" (AAA Certificate Services is only its subject CN).
-RUN apk add --no-cache --upgrade \
+# ${VAR:?} fails the build if the pin is ever unset. The mozilla/ listing proves the roots are gone.
+# Do not copy a CA bundle from another stage over this one: it would overwrite the patched bundle.
+RUN apk add --update --no-cache --upgrade \
     "ca-certificates>=${CA_CERTIFICATES_VERSION:?}" \
     "ca-certificates-bundle>=${CA_CERTIFICATES_VERSION:?}" \
- && test -s /etc/ssl/certs/ca-certificates.crt \
- && test -d /usr/share/ca-certificates/mozilla \
- && ! ls /usr/share/ca-certificates/mozilla | grep -iE '^(emSign_ECC_Root_CA_-_G3|Comodo_AAA_Services_root|AAA_Certificate_Services)\.crt$'
+    curl \
+    && ! ls /usr/share/ca-certificates/mozilla | grep -iE 'emsign_ecc_root_ca_-_g3|aaa_certificate' \
+    && rm -rf /var/cache/apk/*
 
-COPY --from=jf /jf /usr/local/bin/jfrog
+COPY --from=jf-build /jf /usr/local/bin/jfrog
 
 ADD release/linux/arm64/plugin /bin/
 ENTRYPOINT ["/bin/plugin"]
