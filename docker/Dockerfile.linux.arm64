@@ -17,9 +17,15 @@ ARG JF_CLI_COMMIT
 ENV GOTOOLCHAIN=local CGO_ENABLED=0
 RUN apk add --no-cache git
 WORKDIR /src
+# CVE-2026-84445 (DBOPS-3329): newest JFrog CLI release v2.128.0 (and master at the
+# same commit) still requires google.golang.org/grpc v1.83.1. No CLI tag selects
+# >= v1.83.2, so pin that minimum patch while compiling jf from the pinned tag.
+# Drop this go get once a CLI tag's go.sum selects grpc >= v1.83.2.
 RUN git clone --depth 1 --branch "v${JF_CLI_VERSION}" https://github.com/jfrog/jfrog-cli.git . \
  && test "$(git rev-parse HEAD)" = "${JF_CLI_COMMIT}" \
- && go build -trimpath -ldflags '-w -extldflags "-static"' -o /jf main.go
+ && go get google.golang.org/grpc@v1.83.2 \
+ && go build -trimpath -ldflags '-w -extldflags "-static"' -o /jf main.go \
+ && go version -m /jf | awk '$2=="google.golang.org/grpc" && $3=="v1.83.2" { found=1 } END { exit !found }'
 
 FROM arm64v8/alpine:3.24
 ARG CA_CERTIFICATES_VERSION
